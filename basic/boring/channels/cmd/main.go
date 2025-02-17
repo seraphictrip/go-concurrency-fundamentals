@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
+	"gcf/basic/boring/channels"
+	"runtime"
 	"time"
 
 	"math/rand"
@@ -11,28 +15,48 @@ import (
 
 // It was just printed to the screen, where we pretended we saw a conversation.
 
+var n = flag.Int("n", 5, "number of boring messages to receive in main")
+
+// https://go.dev/talks/2012/concurrency.slide#19
 // Real conversations require communication.
 func main() {
-	c := make(chan string)
-	go boring("boring!", c)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	flag.Parse()
+
+	c := channels.MakeUnbufferedChannel[string]()
+	go boring(ctx, "boring!", c)
 	// recievers should not close channels!
 	// so I can't just range over channel...
 	// instead I just leave
-	for i := 0; i < 5; i++ {
+	for i := 0; i < *n; i++ {
 		// Receive expression is just a value (chan is string channel, so a string value)
 		// SYNCHRONIZATION: <-c will wait (block) for a value to be sent
-		fmt.Printf("You say: %q\n", <-c)
+		fmt.Printf("You say: %q\n", channels.ReceiveFromChannel(c))
 	}
+	cancel()
 	fmt.Println("You're boring; I'm leaving.")
+	time.Sleep(1 * time.Second)
+	fmt.Println(runtime.NumGoroutine())
 }
 
-func boring(msg string, c chan string) {
+func boring(ctx context.Context, msg string, c chan string) {
+	defer func() {
+		fmt.Println("boring deferred called")
+	}()
 	for i := 0; ; i++ {
-		// communicate via the channel
-		// send to channel c
-		// SYNCHRONIZATION: c <- will wait for a receiver to be ready
-		c <- fmt.Sprintf("%s %d", msg, i)
-		time.Sleep(time.Duration(rand.Intn(1e3)) * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// communicate via the channel
+			// send to channel c
+			// SYNCHRONIZATION: c <- will wait for a receiver to be ready
+			channels.SendToChannel(c, fmt.Sprintf("%s %d", msg, i))
+			time.Sleep(time.Duration(rand.Intn(1e3)) * time.Millisecond)
+
+		}
+
 	}
 }
 
