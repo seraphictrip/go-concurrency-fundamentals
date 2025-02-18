@@ -14,15 +14,11 @@ func BoringGenerator(ctx context.Context, msg string) <-chan string {
 	ch := make(chan string)
 	// start up src
 	go func() {
-		defer func() {
-			fmt.Println("here")
-		}()
 		for i := 0; ; i++ {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				fmt.Println(i)
 				ch <- fmt.Sprintf("%s %d", msg, i)
 				time.Sleep(time.Duration(rand.Intn(1e3)) * time.Millisecond)
 			}

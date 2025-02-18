@@ -2,29 +2,28 @@ package main
 
 import (
 	"fmt"
+	"gcf/basic/boring/patterns/select/daisychain"
 )
 
-func f(left chan<- int, right <-chan int) {
-	secret := <-right
-	distortedSecret := secret + 1
-	left <- distortedSecret
+func transform(secret int) int {
+	return secret + 1
 }
 
 func main() {
-	const n = 100000
+	const n = 1e6
 	// we will listen for "secret" on leftmost
 	leftmost := make(chan int)
-	right := leftmost
-	left := leftmost
+	src := leftmost
+	dest := leftmost
 	for i := 0; i < n; i++ {
-		right = make(chan int)
-		go f(left, right)
-		left = right
+		src = make(chan int)
+		go daisychain.Chain(dest, src, transform)
+		dest = src
 	}
 	// start the chain, prior to this no message has come through
 	// so everything is blocking waiting for signal
 	// code use right <- 1; but start in goroutine to be idomatic?
-	go func(c chan int) { c <- 1 }(right)
+	go func(c chan int) { c <- 1 }(src)
 
 	fmt.Println(<-leftmost)
 }
