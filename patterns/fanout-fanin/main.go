@@ -30,6 +30,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	for i := 0; i < numWorkers; i++ {
+		// add to waitgroup
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -37,12 +38,12 @@ func main() {
 				// Simulate some processing
 				time.Sleep(10 * time.Millisecond)
 				result := num * 2
+				// Fan-in: Aggregate results from workers
 				results <- result
 			}
 		}()
 	}
 
-	// Fan-in: Aggregate results from workers
 	go func() {
 		// if this is not in a go routine then I would wait to start processing
 		wg.Wait()
